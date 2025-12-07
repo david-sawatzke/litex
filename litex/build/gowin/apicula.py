@@ -65,8 +65,32 @@ class GowinApiculaToolchain(YosysNextPNRToolchain):
                     self._packer_opts += " --" + option[4:]
 
         YosysNextPNRToolchain.finalize(self)
+        self.apply_hyperram_integration_hack(self._build_name + ".v")
 
     def build(self, platform, fragment, **kwargs):
         self.platform = platform
 
         return YosysNextPNRToolchain.build(self, platform, fragment, **kwargs)
+
+    def apply_hyperram_integration_hack(self, v_file):
+        # FIXME: Gowin EDA expects a very specific HypeRAM integration pattern, modify generated verilog to match it.
+
+        # Convert to vectors.
+        tools.replace_in_file(v_file, "O_hpram_reset_n", "O_hpram_reset_n[0]")
+        tools.replace_in_file(v_file, "O_hpram_cs_n",    "O_hpram_cs_n[0]")
+        tools.replace_in_file(v_file, "O_hpram_rwds",    "O_hpram_rwds[0]")
+        tools.replace_in_file(v_file, "O_hpram_ck ",     "O_hpram_ck[0] ")
+        tools.replace_in_file(v_file, "O_hpram_ck_n ",   "O_hpram_ck_n[0] ")
+        tools.replace_in_file(v_file, "O_hpram_ck,",     "O_hpram_ck[0],")
+        tools.replace_in_file(v_file, "O_hpram_ck_n,",   "O_hpram_ck_n[0],")
+        tools.replace_in_file(v_file, "wire          O_hpram_reset_n[0]", "wire [0:0] O_hpram_reset_n")
+        tools.replace_in_file(v_file, "wire          O_hpram_cs_n[0]",    "wire [0:0] O_hpram_cs_n")
+        tools.replace_in_file(v_file, "wire          IO_hpram_rwds[0]",   "wire [0:0] IO_hpram_rwds")
+        tools.replace_in_file(v_file, "wire          O_hpram_ck[0]",      "wire [0:0] O_hpram_ck")
+        tools.replace_in_file(v_file, "wire          O_hpram_ck_n[0]",    "wire [0:0] O_hpram_ck_n")
+
+        # Apply Synthesis directives.
+        tools.replace_in_file(v_file, "wire [0:0] IO_hpram_rwds,", "wire [0:0] IO_hpram_rwds, /* synthesis syn_tristate = 1 */")
+        tools.replace_in_file(v_file, "wire    [7:0] IO_hpram_dq,",    "wire [7:0] IO_hpram_dq,  /* synthesis syn_tristate = 1 */")
+        tools.replace_in_file(v_file, "[1:0] IO_psram_rwds,", "[1:0] IO_psram_rwds, /* synthesis syn_tristate = 1 */")
+        tools.replace_in_file(v_file, "[15:0] IO_psram_dq,",    "[15:0] IO_psram_dq,  /* synthesis syn_tristate = 1 */")
